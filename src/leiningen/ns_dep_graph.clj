@@ -61,31 +61,32 @@
           ns-names (set (map (comp second ns-file/read-file-ns-decl)
                              source-files))
           part-of-project? (partial contains? ns-names)
-          nodes (filter part-of-project? (ns-dep/nodes dep-graph))]
-      (let [{:keys [options arguments errors summary]} (cli/parse-opts args cli-options)
-            filter-namespace-fn (partial re-find (re-pattern (:filter-ns options)))
-            filtered-nodes (if-not (nil? (:filter-ns options))
-                             (set (filter filter-namespace-fn (map str nodes)))
-                             nodes)
-            filename (condp = (keyword (name subtask))
-                       :dot (str (:output options) ".dot")
-                       :png (str (:output options) ".png"))]
-        (if (.exists (io/as-file filename ))
-          (exit 0  (str filename " already exists !"))
-          (condp = (keyword (name subtask))
-            :dot
-            (with-open [w (io/writer filename)]
-              (.write w (dot/graph->dot
-                         filtered-nodes
-                         #(filter part-of-project? (ns-dep/immediate-dependencies dep-graph %))
-                         :node->descriptor (fn [x] {:label x})
-                         :directed? true)))
-            :png (viz/save-graph
-                  filtered-nodes
-                  #(filter part-of-project? (ns-dep/immediate-dependencies dep-graph %))
-                  :node->descriptor (fn [x] {:label x})
-                  :options {:dpi 72}
-                  :filename filename)))))))
+          nodes (filter part-of-project? (ns-dep/nodes dep-graph))
+          {:keys [options arguments errors summary]} (cli/parse-opts args cli-options)
+          filter-namespace-fn (partial re-find (re-pattern (:filter-ns options)))
+          filtered-nodes (if-not (nil? (:filter-ns options))
+                           (set (filter filter-namespace-fn (map str nodes)))
+                           nodes)
+          filename (condp = (keyword (name subtask))
+                     :dot (str (:output options) ".dot")
+                     :png (str (:output options) ".png"))
+         ]
+      (if (.exists (io/as-file filename ))
+        (exit 0  (str filename " already exists !"))
+        (condp = (keyword (name subtask))
+          :dot
+          (with-open [w (io/writer filename)]
+            (.write w (dot/graph->dot
+                       filtered-nodes
+                       #(filter part-of-project? (ns-dep/immediate-dependencies dep-graph %)))
+                       :node->descriptor (fn [x] {:label x})
+                       :directed? true)))
+          :png (viz/save-graph
+                filtered-nodes
+                #(filter part-of-project? (ns-dep/immediate-dependencies dep-graph %))
+                :node->descriptor (fn [x] {:label x})
+                :options {:dpi 72}
+                :filename filename))))))
 
 
 ;; TODO: maybe add option to show dependencies on external namespaces as well.
